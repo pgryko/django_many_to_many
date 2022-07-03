@@ -2,6 +2,7 @@ from collections import OrderedDict
 
 from django.test import TestCase
 from rest_framework.exceptions import ErrorDetail
+from rest_framework.reverse import reverse
 from rest_framework.test import APIClient
 
 from address_book_api.models import AddressUser, PostalAddress
@@ -71,7 +72,7 @@ class AddressAPITestCase(TestCase):
 
     def test_view_address(self):
         """View user's associated addresses"""
-        response = self.client.get("/api/v1/addressbook")
+        response = self.client.get(reverse("postaladdress-list"))
         self.assertCountEqual(
             response.data,
             [
@@ -113,7 +114,7 @@ class AddressAPITestCase(TestCase):
         Note, we've only tested filtering by a single param, if we wanted to be through
         we should test filtering with other params works
         """
-        response = self.client.get("/api/v1/addressbook/?zip_code=728wye")
+        response = self.client.get(f"{reverse('postaladdress-list')}?zip_code=728wye")
         self.assertCountEqual(
             response.data,
             OrderedDict(
@@ -152,7 +153,7 @@ class AddressAPITestCase(TestCase):
 
     def test_view_address_pagination(self):
         """Test pagination for batch get"""
-        response = self.client.get("/api/v1/addressbook/?limit=2&offset=2")
+        response = self.client.get(f"{reverse('postaladdress-list')}?limit=2&offset=2")
         self.assertCountEqual(
             response.data,
             OrderedDict(
@@ -188,7 +189,7 @@ class AddressAPITestCase(TestCase):
                 ]
             ),
         )
-        response = self.client.get("/api/v1/addressbook/?limit=2")
+        response = self.client.get(f"{reverse('postaladdress-list')}?limit=2")
         self.assertCountEqual(
             response.data,
             OrderedDict(
@@ -201,7 +202,7 @@ class AddressAPITestCase(TestCase):
                         [
                             OrderedDict(
                                 [
-                                    ("id", self.common_postal_address_user1.id),
+                                    ("id", self.shared_postal_address.id),
                                     ("address1", "Our Coworking space"),
                                     ("address2", "testuser1andtestuser2"),
                                     ("zip_code", "reqaw2"),
@@ -221,7 +222,7 @@ class AddressAPITestCase(TestCase):
         """
         count = self.test_user1.postal_addresses.count()
         response = self.client.post(
-            "/api/v1/addressbook",
+            reverse("postaladdress-list"),
             {
                 "address1": "Addressssss 1",
                 "address2": "Second line",
@@ -240,7 +241,7 @@ class AddressAPITestCase(TestCase):
         self.assertEqual(count + 1, self.test_user1.postal_addresses.count())
 
         response = self.client.post(
-            "/api/v1/addressbook",
+            reverse("postaladdress-list"),
             {
                 "address1": "Addressssss 1",
                 "address2": "Second line",
@@ -272,7 +273,7 @@ class AddressAPITestCase(TestCase):
         # Technically this is coupling between the previous test (test_view_address)
         # but I prefer to be a little paranoid and check explicitly
 
-        response = self.client.get("/api/v1/addressbook")
+        response = self.client.get(reverse("postaladdress-list"))
         self.assertCountEqual(
             response.data,
             [
@@ -326,7 +327,7 @@ class AddressAPITestCase(TestCase):
 
     def test_patch(self):
         """Should correctly update an address"""
-        response = self.client.get("/api/v1/addressbook/")
+        response = self.client.get(reverse("postaladdress-list"))
         self.assertCountEqual(
             response.data,
             OrderedDict(
@@ -359,7 +360,7 @@ class AddressAPITestCase(TestCase):
                             ),
                             OrderedDict(
                                 [
-                                    ("id", self.common_postal_address_user1.id),
+                                    ("id", self.shared_postal_address.id),
                                     ("address1", "Our Coworking space"),
                                     ("address2", "testuser1andtestuser2"),
                                     ("zip_code", "reqaw2"),
@@ -374,7 +375,7 @@ class AddressAPITestCase(TestCase):
         )
 
         response = self.client.patch(
-            f"/api/v1/addressbook/{self.address1.id}/",
+            f"{reverse('postaladdress-list')}/{self.address1.id}/",
             {
                 "address1": "Addressssss 1",
                 "address2": "Second line",
@@ -386,7 +387,7 @@ class AddressAPITestCase(TestCase):
         self.assertEqual(response.status_code, 200)
 
         # Test that it's been correctly updated
-        response = self.client.get(f"/api/v1/addressbook/{self.address1.id}/")
+        response = self.client.get(f"{reverse('postaladdress-list')}/{self.address1.id}/")
         self.assertCountEqual(
             response.data,
             {
@@ -401,7 +402,7 @@ class AddressAPITestCase(TestCase):
 
         # Test that unique constraints hold, i.e. you can't update to something that already exists
         response = self.client.patch(
-            f"/api/v1/addressbook/{self.address1.id}/",
+            f"/{reverse('postaladdress-list')}/{self.address1.id}/",
             {
                 "address1": "14 SomeDay Road",
                 "address2": "testuser1only",
@@ -432,7 +433,7 @@ class AddressAPITestCase(TestCase):
         )
 
         self.assertEqual(
-            self.client.delete(f"/api/v1/addressbook{address1_id}/").status_code, 204
+            self.client.delete(f"{reverse('postaladdress-list')}/{address1_id}").status_code, 204
         )
         self.assertFalse(
             self.test_user1.postal_addresses.filter(id=address1_id).exists()
@@ -444,22 +445,22 @@ class AddressAPITestCase(TestCase):
         # Attempt to delete a resource that doesn't exist
 
         self.assertEqual(
-            self.client.delete(f"/api/v1/addressbook{address1_id}/").status_code, 404
+            self.client.delete(f"{reverse('postaladdress-list')}/{address1_id}").status_code, 404
         )
 
         self.assertEqual(
-            self.client.delete(f"/api/v1/addressbook333/").status_code, 404
+            self.client.delete(f"{reverse('postaladdress-list')}/333/").status_code, 404
         )
 
         # Attempt to delete addresses that are not assigned to you
         self.assertEqual(
-            self.client.delete(f"/api/v1/addressbook{self.address4.id}/").status_code,
+            self.client.delete(f"{reverse('postaladdress-list')}/{self.address4.id}").status_code,
             404,
         )
         # Attempt to delete shared address
         self.assertEqual(
             self.client.delete(
-                f"/api/v1/addressbook{self.shared_postal_address.id}/"
+                f"{reverse('postaladdress-list')}/{self.shared_postal_address.id}"
             ).status_code,
             204,
         )
@@ -473,35 +474,35 @@ class AddressAPITestCase(TestCase):
             PostalAddress.objects.filter(id=self.shared_postal_address.id).exists()
         )
 
-        def test_delete_address_batch(self):
-            count = PostalAddress.objects.filter(user=self.test_user1).count()
-            address1_id = self.address1.id
-            address2_id = self.address2.id
+    def test_delete_address_batch(self):
+        count = self.test_user1.postal_addresses.count()
+        address1_id = self.address1.id
+        address2_id = self.address2.id
 
-            self.assertTrue(PostalAddress.objects.filter(id=address1_id).exists())
-            self.assertTrue(PostalAddress.objects.filter(id=address2_id).exists())
+        self.assertTrue(PostalAddress.objects.filter(id=address1_id).exists())
+        self.assertTrue(PostalAddress.objects.filter(id=address2_id).exists())
 
-            self.assertEqual(
-                self.client.delete(
-                    f"/api/v1/addressbook/batch/?ids={address1_id},{address2_id}"
-                ).status_code,
-                204,
-            )
-            self.assertFalse(PostalAddress.objects.filter(id=address1_id).exists())
-            self.assertFalse(PostalAddress.objects.filter(id=address2_id).exists())
-            self.assertEqual(
-                count - 2, PostalAddress.objects.filter(user=self.test_user1).count()
-            )
+        self.assertEqual(
+            self.client.delete(
+                f"{reverse('postaladdress-list')}/batch/?ids={address1_id},{address2_id}"
+            ).status_code,
+            204,
+        )
+        self.assertFalse(PostalAddress.objects.filter(id=address1_id).exists())
+        self.assertFalse(PostalAddress.objects.filter(id=address2_id).exists())
+        self.assertEqual(
+            count - 2, PostalAddress.objects.filter(user=self.test_user1).count()
+        )
 
-            # Test that you can't delete someone else's PostalAddress
-            self.assertEqual(
-                self.client.delete(
-                    f"/api/v1/addressbook/batch/?ids={self.address3.id}"
-                ).status_code,
-                404,
-            )
+        # Test that you can't delete someone else's PostalAddress
+        self.assertEqual(
+            self.client.delete(
+                f"{reverse('postaladdress-list')}/batch/?ids={self.address3.id}"
+            ).status_code,
+            404,
+        )
 
-            self.assertTrue(PostalAddress.objects.filter(id=self.address3.id).exists())
+        self.assertTrue(PostalAddress.objects.filter(id=self.address3.id).exists())
 
     def test_delete_address_batch_transactional(self):
         """Test that when multiple addresses are sent for deletion, that if one object
@@ -509,7 +510,6 @@ class AddressAPITestCase(TestCase):
 
         """
 
-        count = PostalAddress.objects.filter(user=self.test_user1).count()
         address1_id = self.address1.id
         address2_id = self.address2.id
 
@@ -519,7 +519,7 @@ class AddressAPITestCase(TestCase):
         # Expect to fail as address3 is not owned by logged in user
         self.assertEqual(
             self.client.delete(
-                f"/api/v1/addressbook/batch/?ids={address1_id},{self.address3.id}"
+                f"{reverse('postaladdress-list')}/batch/?ids={address1_id},{self.address3.id}"
             ).status_code,
             404,
         )
@@ -541,7 +541,7 @@ class AuthenticationTestCase(TestCase):
         Addresses with from other users should not be visible
 
         """
-        self.assertEqual(self.client.get("/api/v1/addressbook").status_code, 401)
+        self.assertEqual(self.client.get(reverse("postaladdress-list")).status_code, 401)
 
     def test_user_login(self):
         """
@@ -550,7 +550,7 @@ class AuthenticationTestCase(TestCase):
         """
 
         self.client.login(username="testuser1", password="notarealpassword")
-        self.assertEqual(self.client.get("/api/v1/addressbook").status_code, 200)
+        self.assertEqual(self.client.get(reverse("postaladdress-list")).status_code, 200)
 
     def test_user_logout(self):
         """
@@ -558,9 +558,9 @@ class AuthenticationTestCase(TestCase):
 
         """
         self.client.login(username="testuser1", password="notarealpassword")
-        self.assertEqual(self.client.get("/api/v1/addressbook").status_code, 200)
+        self.assertEqual(self.client.get(reverse("postaladdress-list")).status_code, 200)
         self.client.logout()
-        self.assertEqual(self.client.get("/api/v1/addressbook").status_code, 401)
+        self.assertEqual(self.client.get(reverse("postaladdress-list")).status_code, 401)
 
     def test_user_api_token(self):
         """
@@ -575,4 +575,4 @@ class AuthenticationTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         token = response.data["token"]
         client = APIClient(HTTP_AUTHORIZATION="Token " + token)
-        self.assertEqual(client.get("/api/v1/addressbook").status_code, 200)
+        self.assertEqual(client.get(reverse("postaladdress-list")).status_code, 200)

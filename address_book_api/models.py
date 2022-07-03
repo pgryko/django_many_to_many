@@ -107,7 +107,7 @@ class PostalAddress(models.Model):
 
 
 class AddressUserManager(models.Manager):
-    """Add additonal method to address user to emulate create_user behaviour
+    """Add additional method to address user to emulate create_user behaviour
     from django.contrib.auth.models.User
     """
 
