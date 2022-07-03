@@ -1,0 +1,11 @@
+django>=4
+python-decouple>=3.6
+djangorestframework>=3.13.1
+# Filter support for drf browsable API.
+django-filter>=21.1
+# Pin drf-spectacular as docs indicate braking changes are possible
+drf-spectacular==0.21.2
+drf-spectacular-sidecar==2022.2.7
+django-registration>=3.2
+# Iso containing 3 letter city name
+iso3166>=2.0.2
