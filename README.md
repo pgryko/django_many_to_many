@@ -1,6 +1,4 @@
-# Django Many to Many model API example
-
-# Specification
+# Django Many-to-Many model API example
 
 ## Introduction
 

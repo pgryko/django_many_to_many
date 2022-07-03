@@ -62,7 +62,9 @@ class AddressAPITestCase(TestCase):
         )[0]
 
         self.test_user1.postal_addresses.add(self.shared_postal_address)
+        self.test_user1.save()
         self.test_user2.postal_addresses.add(self.shared_postal_address)
+        self.test_user2.save()
 
         self.client = APIClient()
         self.client.login(username="testuser1", password="notarealpassword")
@@ -104,6 +106,113 @@ class AddressAPITestCase(TestCase):
                     ]
                 ),
             ],
+        )
+
+    def test_view_address_filter(self):
+        """View user's associated addresses, and filter by params
+        Note, we've only tested filtering by a single param, if we wanted to be through
+        we should test filtering with other params works
+        """
+        response = self.client.get("/api/v1/addressbook/?zip_code=728wye")
+        self.assertCountEqual(
+            response.data,
+            OrderedDict(
+                [
+                    ("count", 2),
+                    ("next", None),
+                    ("previous", None),
+                    (
+                        "results",
+                        [
+                            OrderedDict(
+                                [
+                                    ("id", self.address1.id),
+                                    ("address1", "25 SomeDay Road"),
+                                    ("address2", "testuser1only"),
+                                    ("zip_code", "728wye"),
+                                    ("city", "London"),
+                                    ("country", "GBR"),
+                                ]
+                            ),
+                            OrderedDict(
+                                [
+                                    ("id", self.address2.id),
+                                    ("address1", "14 SomeDay Road"),
+                                    ("address2", "testuser1only"),
+                                    ("zip_code", "728wye"),
+                                    ("city", "London"),
+                                    ("country", "GBR"),
+                                ]
+                            ),
+                        ],
+                    ),
+                ]
+            ),
+        )
+
+    def test_view_address_pagination(self):
+        """Test pagination for batch get"""
+        response = self.client.get("/api/v1/addressbook/?limit=2&offset=2")
+        self.assertCountEqual(
+            response.data,
+            OrderedDict(
+                [
+                    ("count", 3),
+                    ("next", "http://testserver/api/v1/addressbook/?limit=2&offset=2"),
+                    ("previous", None),
+                    (
+                        "results",
+                        [
+                            OrderedDict(
+                                [
+                                    ("id", self.address1.id),
+                                    ("address1", "25 SomeDay Road"),
+                                    ("address2", "testuser1only"),
+                                    ("zip_code", "728wye"),
+                                    ("city", "London"),
+                                    ("country", "GBR"),
+                                ]
+                            ),
+                            OrderedDict(
+                                [
+                                    ("id", self.address2.id),
+                                    ("address1", "14 SomeDay Road"),
+                                    ("address2", "testuser1only"),
+                                    ("zip_code", "728wye"),
+                                    ("city", "London"),
+                                    ("country", "GBR"),
+                                ]
+                            ),
+                        ],
+                    ),
+                ]
+            ),
+        )
+        response = self.client.get("/api/v1/addressbook/?limit=2")
+        self.assertCountEqual(
+            response.data,
+            OrderedDict(
+                [
+                    ("count", 3),
+                    ("next", None),
+                    ("previous", None),
+                    (
+                        "results",
+                        [
+                            OrderedDict(
+                                [
+                                    ("id", self.common_postal_address_user1.id),
+                                    ("address1", "Our Coworking space"),
+                                    ("address2", "testuser1andtestuser2"),
+                                    ("zip_code", "reqaw2"),
+                                    ("city", "Cambridge"),
+                                    ("country", "GBR"),
+                                ]
+                            ),
+                        ],
+                    ),
+                ]
+            ),
         )
 
     def test_create_address_post(self):
@@ -215,6 +324,105 @@ class AddressAPITestCase(TestCase):
             ],
         )
 
+    def test_patch(self):
+        """Should correctly update an address"""
+        response = self.client.get("/api/v1/addressbook/")
+        self.assertCountEqual(
+            response.data,
+            OrderedDict(
+                [
+                    ("count", 4),
+                    ("next", None),
+                    ("previous", None),
+                    (
+                        "results",
+                        [
+                            OrderedDict(
+                                [
+                                    ("id", self.address1.id),
+                                    ("address1", "25 SomeDay Road"),
+                                    ("address2", "testuser1only"),
+                                    ("zip_code", "728wye"),
+                                    ("city", "London"),
+                                    ("country", "GBR"),
+                                ]
+                            ),
+                            OrderedDict(
+                                [
+                                    ("id", self.address2.id),
+                                    ("address1", "14 SomeDay Road"),
+                                    ("address2", "testuser1only"),
+                                    ("zip_code", "728wye"),
+                                    ("city", "London"),
+                                    ("country", "GBR"),
+                                ]
+                            ),
+                            OrderedDict(
+                                [
+                                    ("id", self.common_postal_address_user1.id),
+                                    ("address1", "Our Coworking space"),
+                                    ("address2", "testuser1andtestuser2"),
+                                    ("zip_code", "reqaw2"),
+                                    ("city", "Cambridge"),
+                                    ("country", "GBR"),
+                                ]
+                            ),
+                        ],
+                    ),
+                ]
+            ),
+        )
+
+        response = self.client.patch(
+            f"/api/v1/addressbook/{self.address1.id}/",
+            {
+                "address1": "Addressssss 1",
+                "address2": "Second line",
+                "zip_code": "90l2s",
+                "city": "Cambridge",
+                "country": "GBR",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # Test that it's been correctly updated
+        response = self.client.get(f"/api/v1/addressbook/{self.address1.id}/")
+        self.assertCountEqual(
+            response.data,
+            {
+                "id": self.address1.id,
+                "address1": "Addressssss 1",
+                "address2": "Second line",
+                "zip_code": "90l2s",
+                "city": "Cambridge",
+                "country": "GBR",
+            },
+        )
+
+        # Test that unique constraints hold, i.e. you can't update to something that already exists
+        response = self.client.patch(
+            f"/api/v1/addressbook/{self.address1.id}/",
+            {
+                "address1": "14 SomeDay Road",
+                "address2": "testuser1only",
+                "zip_code": "728wye",
+                "city": "London",
+                "country": "GBR",
+            },
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertCountEqual(
+            response.data,
+            {
+                "non_field_errors": [
+                    ErrorDetail(
+                        string="The fields address1, address2, zip_code, city, country, user must make a unique set.",
+                        code="unique",
+                    )
+                ]
+            },
+        )
+
     def test_delete_address(self):
 
         count = self.test_user1.postal_addresses.count()
@@ -264,6 +472,60 @@ class AddressAPITestCase(TestCase):
         self.assertTrue(
             PostalAddress.objects.filter(id=self.shared_postal_address.id).exists()
         )
+
+        def test_delete_address_batch(self):
+            count = PostalAddress.objects.filter(user=self.test_user1).count()
+            address1_id = self.address1.id
+            address2_id = self.address2.id
+
+            self.assertTrue(PostalAddress.objects.filter(id=address1_id).exists())
+            self.assertTrue(PostalAddress.objects.filter(id=address2_id).exists())
+
+            self.assertEqual(
+                self.client.delete(
+                    f"/api/v1/addressbook/batch/?ids={address1_id},{address2_id}"
+                ).status_code,
+                204,
+            )
+            self.assertFalse(PostalAddress.objects.filter(id=address1_id).exists())
+            self.assertFalse(PostalAddress.objects.filter(id=address2_id).exists())
+            self.assertEqual(
+                count - 2, PostalAddress.objects.filter(user=self.test_user1).count()
+            )
+
+            # Test that you can't delete someone else's PostalAddress
+            self.assertEqual(
+                self.client.delete(
+                    f"/api/v1/addressbook/batch/?ids={self.address3.id}"
+                ).status_code,
+                404,
+            )
+
+            self.assertTrue(PostalAddress.objects.filter(id=self.address3.id).exists())
+
+    def test_delete_address_batch_transactional(self):
+        """Test that when multiple addresses are sent for deletion, that if one object
+        is not found, the whole operation fails and no addresses are deleted
+
+        """
+
+        count = PostalAddress.objects.filter(user=self.test_user1).count()
+        address1_id = self.address1.id
+        address2_id = self.address2.id
+
+        self.assertTrue(PostalAddress.objects.filter(id=address1_id).exists())
+        self.assertTrue(PostalAddress.objects.filter(id=address2_id).exists())
+
+        # Expect to fail as address3 is not owned by logged in user
+        self.assertEqual(
+            self.client.delete(
+                f"/api/v1/addressbook/batch/?ids={address1_id},{self.address3.id}"
+            ).status_code,
+            404,
+        )
+
+        self.assertTrue(PostalAddress.objects.filter(id=address1_id).exists())
+        self.assertTrue(PostalAddress.objects.filter(id=self.address3.id).exists())
 
 
 class AuthenticationTestCase(TestCase):

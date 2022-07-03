@@ -1,13 +1,22 @@
 from django.contrib.auth.models import User
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework import viewsets, authentication, status
 from rest_framework import permissions
+from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
-import django_filters.rest_framework
+from django_filters import rest_framework as filters
 
-from address_book_api.models import AddressUser
+from address_book_api.models import AddressUser, PostalAddress
 from address_book_api.serialisers import AddressUserSerializer, PostalAddressSerializer
 
+
+class PostalAddressFilter(filters.FilterSet):
+    class Meta:
+        model = PostalAddress
+        fields = ["address1", "address2", "zip_code", "city", "country", "id"]
 
 class AddressUserViewSet(viewsets.ModelViewSet):
     """
@@ -45,7 +54,7 @@ class PostalAddressViewSet(viewsets.ModelViewSet):
         authentication.BasicAuthentication,
     ]
     permission_classes = [permissions.IsAuthenticated]
-    filter_backends = [django_filters.rest_framework.DjangoFilterBackend]
+    filter_backends = [filters.DjangoFilterBackend]
 
     serializer_class = PostalAddressSerializer
 
@@ -93,3 +102,26 @@ class PostalAddressViewSet(viewsets.ModelViewSet):
             self.perform_destroy(postal_address_instance)
 
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @extend_schema(
+        parameters=[OpenApiParameter("ids", OpenApiTypes.STR, OpenApiParameter.QUERY)],
+        description="Comma seperated list of PostalAddress ids, e.g. batch/?ids=1,2,4",
+    )
+    @action(
+        detail=False,
+        methods=["delete"],
+        name="batch_delete",
+    )
+    def batch(self, request):
+        ids = request.query_params.get("ids")
+        user = User.objects.get(username=self.request.user)
+
+        obj_list = []
+        for identifier in ids.split(","):
+            obj_list.append(get_object_or_404(PostalAddress, id=identifier, user=user))
+
+        # We only want to delete to occur if all ids have matched
+        [x.delete() for x in obj_list]
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
